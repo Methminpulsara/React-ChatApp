@@ -40,6 +40,11 @@ function ChatRoom() {
         let payloadData = JSON.parse(payload.body);
         switch(payloadData.status){
             case "JOIN":
+                if(privateChats.get(payloadData.senderName)){
+                    privateChats.set(payloadData.senderName,[])
+                    setprivateChats(new Map(privateChats))
+                }
+
                 break;
             case  "MESSAGE":
                 publicChats.push(payloadData);
@@ -58,7 +63,11 @@ function ChatRoom() {
             privateChats.get(payloadData.senderName).push(payloadData);
             setprivateChats(new Map(privateChats))
         }else{
-            privateChats.set(payloadData.senderName,[payloadData])
+           let list = [];
+           list.push(payload);
+
+           privateChats.set(payloadData.senderName , list);
+           setprivateChats(new Map(privateChats))
         }
     }
 
@@ -68,9 +77,23 @@ function ChatRoom() {
     return (
         <div className='contatiner'>
             {userData.connected ?
-                <div>
+                <div className='member-list'>
+                    <ul>
+                        <li>ChatRoom</li>
+                        {[...privateChats.keys()].map((name, index) => {
+                           <li className='member' key={index}>
+                               {name}
+                           </li>
+                        })}
+                    </ul>
 
-                </div>
+                        <div className='chat-content'>
+                            {[publicChats.map((chat, index) => {
+                                 <li className='message'  key={index}>{chat.message}</li>
+                            })]}
+                        </div>       
+
+                   </div>
                 :
                 <div className='register'>
                     <input
