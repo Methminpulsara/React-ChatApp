@@ -9,8 +9,7 @@ function ChatRoom() {
 
     const [publicChats, setPublicChats] = useState([])
     const [privateChats, setprivateChats] = useState([new Map()])
-
-
+    const [tab, setTab] =useState("CHATROOM")
     const [userData, setUserdata] = useState({
         userName: "",
         reciverName: "",
@@ -18,10 +17,13 @@ function ChatRoom() {
         message: "",
     });
 
-    const handleUserName = (event) => {
-        const { value } = event.target;
-        setUserdata({ ...userData, userName: value });
+    const handleValue = (event) => {
+        const { value, name } = event.target;
+        setUserdata({ ...userData, [name]: value });
     };
+
+    
+
 
     const registerUser = () => {
       let Sock = new Sockjs("http://localhost:8080/ws");
@@ -34,7 +36,20 @@ function ChatRoom() {
         setUserdata({ ...userData, connected: true });
         stomClient.subscribe("/chatroom/public",OnPublicMessageRecived)
         stomClient.subscribe("/user/"+userData.userName+"/private", onPrivateMessageRevived);
+        userLoging();
     }
+
+    const userLoging=()=>{
+        let chatMessage={
+            senderName:userData.userName,
+            message:userData.message,
+            status:"JOIN"
+        }
+        stomClient.send("/app/message", {} ,JSON.stringify(chatMessage));
+        
+    }
+     
+        
 
     const OnPublicMessageRecived =(payload)=>{
         let payloadData = JSON.parse(payload.body);
@@ -71,42 +86,129 @@ function ChatRoom() {
         }
     }
 
+    const sendPrivateMessage =()=>{
+        if(stomClient){
+            let chatMessage={
+                senderName:userData.userName,
+                reciverName:tab,
+                message:userData.message,
+                status:"MESSAGE"
+            };
 
+            if(userData.userName !== tab){
+                 privateChats.set(tab).push(chatMessage);
+                 setprivateChats(new Map(privateChats))
+            }
+
+            stomClient.send("/app/private-message",{},JSON.stringify(chatMessage))
+            setUserdata({ ...userData, message: "" });
+        }
     }
 
+        const sendPublicMessage =()=>{
+        if(stomClient){
+            let chatMessage={
+                senderName:userData.userName,
+                message:userData.message,
+                status:"MESSAGE"
+            };
+
+            stomClient.send("/app/message",{},JSON.stringify(chatMessage))
+            setUserdata({ ...userData, message: "" });
+        }
+    }
+        
+    
+
+
+    
     return (
-        <div className='contatiner'>
-            {userData.connected ?
-                <div className='member-list'>
-                    <ul>
-                        <li>ChatRoom</li>
-                        {[...privateChats.keys()].map((name, index) => {
-                           <li className='member' key={index}>
-                               {name}
-                           </li>
-                        })}
-                    </ul>
+      <div className="contatiner">
+        {userData.connected ? (
+          <div className="member-list">
+            <ul>
+              <li
+                onClick={() => {
+                  setTab("CHATROOM");
+                }}
+                className={'member ${ tab ==="CHATROOM" && "active"}'}>ChatRoom</li>
+              {[...privateChats.keys()].map((name, index) => {
+                <li onClick={()=>{setTab(name);}} className={'member ${ tab === name && "active"}'} key={index}>
+                  {name}
+                </li>;
+              })}
+            </ul>
 
-                        <div className='chat-content'>
-                            {[publicChats.map((chat, index) => {
-                                 <li className='message'  key={index}>{chat.message}</li>
-                            })]}
-                        </div>       
+            {tab === "CHATROOM" && (
+              <div className="chat-content">
+                <ul className='chat-message'>
+                {publicChats.map((chat, index) => {
+                    <li className="message" key={index}>
+                      {chat.senderName !== userData.userName && (
+                        <div className="avater">{chat.senderName}</div>
+                      )}
+                      <div className="message-data">{chat.message}</div>
+                      {chat.senderName === userData.userName && (
+                        <div className="avater-self">{chat.senderName}</div>
+                      )}
+                    </li>;
+                  })}
+                  </ul>
 
-                   </div>
-                :
-                <div className='register'>
+                  <div className='send-message'>
                     <input
-                        id='user.name'
-                        placeholder='enter user name'
-                        value={userData.userName}
-                        onChange={handleUserName} />
-                    <button type='button' onClick={registrUser}>
-                        connect
-                    </button>
-                </div>}
-        </div>
+                        type='text' className='input-message' placeholder='enter public message' value={userData.message}
+                        onChange={handleValue}
+                    />
+                    <button type='button' className='send-button' onClick={sendPublicMessage}> send </button>
+                  </div>
 
+
+              </div>
+            )}
+
+            {tab !== "CHATROOM" && (
+              <div className="chat-content">
+                  <ul className='chat-message'>
+                {[
+                  ...privateChats.get(tab)].map((chat, index) => {
+                    <li className="message" key={index}>
+                      {chat.senderName !== userData.userName && (
+                        <div className="avater">{chat.senderName}</div>
+                      )}
+                      <div className="message-data">{chat.message}</div>
+                      {chat.senderName === userData.userName && (
+                        <div className="avater-self">{chat.senderName}</div>
+                      )}
+                    </li>;
+                  })}
+                  </ul>
+                    <div className='send-message'>
+                    <input
+                        type='text' className='input-message' placeholder={'enter private message for ${tab}'} value={userData.message}
+                        onChange={handleValue}
+                    />
+                    <button type='button' className='send-button' onClick={sendPrivateMessage}> send </button>
+                  </div>
+
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="register">
+            <input
+                name='username'
+              id="user.name"
+              placeholder="enter user name"
+              value={userData.userName}
+              onChange={handleValue}
+            />
+            <button type="button" onClick={registerUser}>
+              connect
+            </button>
+          </div>
+        )}
+      </div>
     );
 }
 
